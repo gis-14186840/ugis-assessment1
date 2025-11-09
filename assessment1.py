@@ -12,6 +12,22 @@ start_time = perf_counter()
 
 ''' --- ALL CODE MUST BE INSIDE HERE --- '''
 
+# Import required libraries
+import geopandas as gpd
+from pyproj import Geod
+
+
+
+
+# 1.Data loading and preprocessing
+
+# Initialize Geod pbject with WGS84 ellipsoid
+geod = Geod(ellps='WGS84')
+
+# Load country boundary data
+world = gpd.read_file("./data/natural-earth/ne_10m_admin_0_countries.shp")
+
+
 
 # --- NO CODE BELOW HERE ---
 
