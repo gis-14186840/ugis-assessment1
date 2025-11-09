@@ -204,6 +204,9 @@ my_ax.annotate(
     arrowprops=dict(facecolor='black', width=3, headwidth=10),
     ha='center', va='center', fontsize=12, xycoords=my_ax.transAxes)
 
+# save the image
+savefig('./out/assessment1.png')
+
 # --- NO CODE BELOW HERE ---
 
 # report runtime
