@@ -22,7 +22,7 @@ from pyproj import Geod
 # 1.Data loading and preprocessing
 
 # Initialize Geod pbject with WGS84 ellipsoid
-geod = Geod(ellps='WGS84')
+g = Geod(ellps='WGS84')
 
 # Load country boundary data
 world = gpd.read_file("./data/natural-earth/ne_10m_admin_0_countries.shp")
@@ -35,6 +35,13 @@ print(f"Number of valid countries:{len(world)}")
 
 # Extract country geometries and build STRtree spatial index
 geometries = world['geometry'].tolist()
+spatial_index = gpd.GeoSeries(geometries).sindex
+
+# Store border results
+border_results = []
+
+
+
 
 
 # --- NO CODE BELOW HERE ---
