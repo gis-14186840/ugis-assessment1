@@ -14,15 +14,20 @@ start_time = perf_counter()
 
 # Import required libraries
 import geopandas as g
+
 from pyproj import Geod
 
+from matplotlib.pyplot import subplots, title
 
-
+from geopandas import GeoSeries
 
 # 1.Data loading and preprocessing
 
 # Initialize Geod pbject with WGS84 ellipsoid
 geod = Geod(ellps='WGS84')
+
+# Define lambert conic
+lambert_conic = "+proj=lcc +lat_1=30 +lat_2=60 +lon_0=15 +datum=WGS84 +units=m +no_defs"
 
 # Load country boundary data
 world = g.read_file("./data/natural-earth/ne_10m_admin_0_countries.shp")
@@ -117,6 +122,28 @@ print(f"Length: {shortest_border['length_m']:.0f} m")
 
 
 # 5.Drawing the map
+
+# create map axis object
+my_fig, my_ax = subplots(1, 1, figsize=(16, 10))
+
+# remove axes
+my_ax.axis('off')
+
+# set title
+title(f"Shortest International Border: {shortest_border['country_pair']}\nLength: {shortest_border['length_m']:.0f} m",fontsize=16, pad=20)
+
+# project border
+border_series = GeoSeries(shortest_border, crs=world.crs).to_crs(lambert_conic)
+
+# extract the bounds from the (projected) GeoSeries Object
+minx, miny, maxx, maxy = border_series.geometry.iloc[0].bounds
+
+# set bounds (5000m buffer around the border itself, to give us some context)
+buffer = 5000
+my_ax.set_xlim([minx - buffer, maxx + buffer])
+my_ax.set_ylim([miny - buffer, maxy + buffer])
+
+
 
 
 
