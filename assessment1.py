@@ -104,6 +104,19 @@ for i in range(len(world)):
             'country_pair': f"{name_a} ({iso_a}) - {name_b} ({iso_b})",
             'length_m': total_length,
             'geometry': border_geom})
+        
+        
+# 4. Filter the shortest border
+
+# Sort and take the shortest one
+shortest_border = sorted(border_results, key=lambda x: x['length_m'])[0]
+
+# Print results
+print(f"Country Pair: {shortest_border['country_pair']}")
+print(f"Length: {shortest_border['length_m']:.0f} m")
+
+
+# 5.Drawing the map
 
 
 
