@@ -14,33 +14,24 @@ start_time = perf_counter()
 
 # Import required libraries
 import geopandas as g
-
 from pyproj import Geod
-
-from matplotlib.pyplot import subplots, title
-
-from geopandas import GeoSeries
+from matplotlib.pyplot import subplots, title, savefig
+from matplotlib_scalebar.scalebar import ScaleBar
+from matplotlib.patches import Patch
 
 # 1.Data loading and preprocessing
 
-# Initialize Geod pbject with WGS84 ellipsoid
+# Set ellipsoid
 geod = Geod(ellps='WGS84')
-
-# Define lambert conic
-lambert_conic = "+proj=lcc +lat_1=30 +lat_2=60 +lon_0=15 +datum=WGS84 +units=m +no_defs"
 
 # Load country boundary data
 world = g.read_file("./data/natural-earth/ne_10m_admin_0_countries.shp")
 
-# Print basic data information
-print(f"Number of valid countries:{len(world)}")
-
 
 # 2.Spatial index construction
 
-# Extract country geometries and build STRtree spatial index
-geometries = world['geometry'].tolist()
-spatial_index = g.GeoSeries(geometries).sindex
+# Build STRtree spatial index
+spatial_index = g.GeoSeries(world['geometry'].tolist()).sindex
 
 # Store border results
 border_results = []
@@ -79,8 +70,10 @@ for i in range(len(world)):
         if border_geom.geom_type not in ['LineString', 'MultiLineString']:
             continue
         
-        # Handle multi-segment cases
+        # Store multi-segment results
         border_segments = []
+        
+        # Handle multi-segment cases
         if border_geom.geom_type == 'MultiLineString':
             border_segments = list(border_geom.geoms)
         else:
@@ -108,13 +101,18 @@ for i in range(len(world)):
         border_results.append({
             'country_pair': f"{name_a} ({iso_a}) - {name_b} ({iso_b})",
             'length_m': total_length,
-            'geometry': border_geom})
+            'geometry': border_geom,
+            'country_a_x': i,
+            'country_b_x': j,})
         
         
 # 4. Filter the shortest border
 
 # Sort and take the shortest one
 shortest_border = sorted(border_results, key=lambda x: x['length_m'])[0]
+
+# From shortest_border get key points for drawing map
+length_m = shortest_border['length_m'] 
 
 # Print results
 print(f"Country Pair: {shortest_border['country_pair']}")
@@ -132,20 +130,79 @@ my_ax.axis('off')
 # set title
 title(f"Shortest International Border: {shortest_border['country_pair']}\nLength: {shortest_border['length_m']:.0f} m",fontsize=16, pad=20)
 
-# project border
-border_series = GeoSeries(shortest_border, crs=world.crs).to_crs(lambert_conic)
+# Define lambert conic
+lambert_conic = "+proj=lcc +lat_1=30 +lat_2=60 +lon_0=15 +datum=WGS84 +units=m +no_defs"
+
+# Transfor shortest_border
+border_series = g.GeoSeries(
+    [shortest_border['geometry']], 
+    crs=world.crs).to_crs(lambert_conic)
+
+# Transfor countries' geometry
+country_a_y = g.GeoSeries(
+    [world.loc[shortest_border['country_a_x']]['geometry']], 
+    crs=world.crs).to_crs(lambert_conic)
+country_b_y = g.GeoSeries(
+    [world.loc[shortest_border['country_b_x']]['geometry']], 
+    crs=world.crs).to_crs(lambert_conic)
 
 # extract the bounds from the (projected) GeoSeries Object
 minx, miny, maxx, maxy = border_series.geometry.iloc[0].bounds
 
-# set bounds (5000m buffer around the border itself, to give us some context)
-buffer = 5000
+# set bounds 
+buffer = length_m / 10
 my_ax.set_xlim([minx - buffer, maxx + buffer])
 my_ax.set_ylim([miny - buffer, maxy + buffer])
 
+# plot data
+country_a_y.plot(
+    ax = my_ax,
+    color = '#ccebc5',
+    edgecolor = '#4daf4a',
+    linewidth = 0.5,)
 
+country_b_y.plot(
+    ax = my_ax,
+    color = '#fed9a6',
+    edgecolor = '#ff7f00',
+    linewidth = 0.5,)
 
+border_series.plot(     
+    ax = my_ax,
+    color = '#984ea3',
+    linewidth = 3,)
 
+# Add scale bar
+my_ax.add_artist(
+    ScaleBar(
+        dx=1, 
+        units="m", 
+        location="lower left", 
+        length_fraction=0.3))
+
+# Add legend
+legend_elements = [
+    Patch(
+        facecolor='#ccebc5', 
+        edgecolor='#4daf4a', 
+        label=world.loc[shortest_border['country_a_x']]['NAME']),  
+    Patch(
+        facecolor='#fed9a6', 
+        edgecolor='#ff7f00', 
+        label=world.loc[shortest_border['country_b_x']]['NAME']),  
+    Patch(
+        facecolor='#984ea3', 
+        label=f'Shortest Border ({length_m:.0f} m)')]
+my_ax.legend(handles=legend_elements, loc='lower right', fontsize=12)
+
+# Add north arrow
+x, y, arrow_length = 0.95, 0.95, 0.05
+my_ax.annotate(
+    'N',
+    xy=(x, y),
+    xytext=(x, y - arrow_length),
+    arrowprops=dict(facecolor='black', width=3, headwidth=10),
+    ha='center', va='center', fontsize=12, xycoords=my_ax.transAxes)
 
 # --- NO CODE BELOW HERE ---
 
