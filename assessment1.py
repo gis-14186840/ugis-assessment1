@@ -27,6 +27,14 @@ geod = Geod(ellps='WGS84')
 # Load country boundary data
 world = gpd.read_file("./data/natural-earth/ne_10m_admin_0_countries.shp")
 
+# Print basic data information
+print(f"Number of valid countries:{len(world)}")
+
+
+# 2.Spatial index construction
+
+# Extract country geometries and build STRtree spatial index
+geometries = world['geometry'].tolist()
 
 
 # --- NO CODE BELOW HERE ---
