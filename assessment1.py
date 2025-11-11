@@ -1,6 +1,6 @@
 """
 Understanding GIS: Assessment 1
-@author [INSERT STUDENT NUMBER HERE]
+@author [14186840]
 """
 from time import perf_counter
 
@@ -31,7 +31,7 @@ world = g.read_file("./data/natural-earth/ne_10m_admin_0_countries.shp")
 # 2.Spatial index construction
 
 # Build STRtree spatial index
-spatial_index = g.GeoSeries(world['geometry'].tolist()).sindex
+spatial_index = g.GeoSeries(world['geometry']).sindex
 
 # Store border results
 border_results = []
@@ -80,7 +80,7 @@ for i in range(len(world)):
             border_segments = [border_geom]
         
         # Calculate ellipsoidal distance
-        total_length = 0.0
+        total_length = 0
         
         # Calculate total length by iterating over all segments
         for segment in border_segments:
