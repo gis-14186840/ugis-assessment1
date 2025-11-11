@@ -19,7 +19,7 @@ from matplotlib.pyplot import subplots, title, savefig
 from matplotlib_scalebar.scalebar import ScaleBar
 from matplotlib.patches import Patch
 
-# 1.Data loading and preprocessing
+# 1.Data load
 
 # Set ellipsoid
 geod = Geod(ellps='WGS84')
@@ -34,92 +34,71 @@ world = g.read_file("./data/natural-earth/ne_10m_admin_0_countries.shp")
 spatial_index = g.GeoSeries(world['geometry']).sindex
 
 # Store border results
-border_results = []
+shortest_length = float('inf')
+shortest_border = None
 
 
 # 3.Border calculation and length measurement
 
-# loop through a list (i < j)
+# loop through all countries
 for i in range(len(world)):
     
-    # Get current country information
+    # Get country information
     country_a = world.loc[i]
-    geom_a = world.geometry.loc[i]
-    iso_a = world.ISO_A3.loc[i]
-    name_a = world.NAME.loc[i]
+    geom_a = country_a['geometry']
     
     # Check candidate countries that may intersect with current country
-    candidate_indices = list(spatial_index.query(geom_a, predicate='intersects'))
+    candidate = list(spatial_index.query(geom_a, predicate='intersects'))
     
-    # Filter candidate countries with index bigger than i
-    candidate_indices = [j for j in candidate_indices if j > i]
-    
-    # Loop all candidate countries and calculate intersection
-    for j in candidate_indices:
+    # Loop all countries and calculate intersection
+    for j in candidate:
         
-        # Get current country information
-        country_b = world.loc[j]
-        geom_b = world.geometry.loc[j]
-        iso_b = world.ISO_A3.loc[j]
-        name_b = world.NAME.loc[j]
-        
-        # Calculate intersection of the two countries' boundaries
-        border_geom = geom_a.intersection(geom_b)
-        
-        # Filter invalid borders
-        if border_geom.geom_type not in ['LineString', 'MultiLineString']:
+        # Skip duplicates
+        if i >= j:
             continue
         
-        # Store multi-segment results
-        border_segments = []
+        # Get country information
+        country_b = world.loc[j]
+        geom_b = country_b['geometry']
         
-        # Handle multi-segment cases
-        if border_geom.geom_type == 'MultiLineString':
-            border_segments = list(border_geom.geoms)
-        else:
-            border_segments = [border_geom]
+        # Calculate intersection of the two countries' boundaries
+        border = geom_a.intersection(geom_b)
+        
+        # Filter invalid borders
+        if border.is_empty or border.geom_type not in ['LineString', 'MultiLineString']:
+            continue
         
         # Calculate ellipsoidal distance
         total_length = 0
         
-        # Calculate total length by iterating over all segments
-        for segment in border_segments:
-            
-            # Ensure coordinates of a single LineString
-            coords = list(segment.coords)  
-            
-            # Accumulate length of each sub-segment
-            for k in range(len(coords) - 1):
-                lon1, lat1 = coords[k]
-                lon2, lat2 = coords[k + 1]
-                
-                # Calculate ellipsoidal distance between two points
-                _, _, dist = geod.inv(lon1, lat1, lon2, lat2)
-                total_length += dist
-                
-        # Store results
-        border_results.append({
-            'country_pair': f"{name_a} ({iso_a}) - {name_b} ({iso_b})",
-            'length_m': total_length,
-            'geometry': border_geom,
-            'country_a_x': i,
-            'country_b_x': j,})
-        
-        
-# 4. Filter the shortest border
-
-# Sort and take the shortest one
-shortest_border = sorted(border_results, key=lambda x: x['length_m'])[0]
-
-# From shortest_border get key points for drawing map
-length_m = shortest_border['length_m'] 
+        # Calculate border length 
+        if border.geom_type == 'MultiLineString':
+            for line in border.geoms:
+                coords = list(line.coords)
+                for k in range(len(coords)-1):
+                    _, _, dist = geod.inv(coords[k][0], coords[k][1], coords[k+1][0], coords[k+1][1])
+                    total_length += dist
+        else:
+            coords = list(border.coords)
+            for k in range(len(coords)-1):
+                 _, _, dist = geod.inv(coords[k][0], coords[k][1], coords[k+1][0], coords[k+1][1])
+                 total_length += dist
+                          
+        # Update shortest border
+        if total_length > 0 and total_length < shortest_length:
+            shortest_length = total_length
+            shortest_border = {
+              'country_pair': f"{country_a['NAME']} ({country_a['ISO_A3']}) - {country_b['NAME']} ({country_b['ISO_A3']})",
+              'geometry': border,
+              'country_a_x': i,
+              'country_b_x': j,}
 
 # Print results
 print(f"Country Pair: {shortest_border['country_pair']}")
-print(f"Length: {shortest_border['length_m']:.0f} m")
+print(f"Length: {shortest_length:.0f} m")
 
 
-# 5.Drawing the map
+# 4.Drawing the map
 
 # create map axis object
 my_fig, my_ax = subplots(1, 1, figsize=(16, 10))
@@ -128,7 +107,7 @@ my_fig, my_ax = subplots(1, 1, figsize=(16, 10))
 my_ax.axis('off')
 
 # set title
-title(f"Shortest International Border: {shortest_border['country_pair']}\nLength: {shortest_border['length_m']:.0f} m",fontsize=16, pad=20)
+title(f"Shortest International Border: {shortest_border['country_pair']}\nLength: {shortest_length:.0f} m",fontsize=16, pad=20)
 
 # Define lambert conic
 lambert_conic = "+proj=lcc +lat_1=30 +lat_2=60 +lon_0=15 +datum=WGS84 +units=m +no_defs"
@@ -150,7 +129,7 @@ country_b_y = g.GeoSeries(
 minx, miny, maxx, maxy = border_series.geometry.iloc[0].bounds
 
 # set bounds 
-buffer = length_m / 10
+buffer = shortest_length / 10
 my_ax.set_xlim([minx - buffer, maxx + buffer])
 my_ax.set_ylim([miny - buffer, maxy + buffer])
 
@@ -192,7 +171,7 @@ legend_elements = [
         label=world.loc[shortest_border['country_b_x']]['NAME']),  
     Patch(
         facecolor='#984ea3', 
-        label=f'Shortest Border ({length_m:.0f} m)')]
+        label=f'Shortest Border ({shortest_length:.0f} m)')]
 my_ax.legend(handles=legend_elements, loc='lower right', fontsize=12)
 
 # Add north arrow
