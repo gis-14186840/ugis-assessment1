@@ -44,7 +44,7 @@ shortest_border = None
 for i in range(len(world)):
     
     # Get country information
-    country_a = world.loc[i]
+    country_a = world.iloc[i]
     geom_a = country_a['geometry']
     
     # Check candidate countries that may intersect with current country
@@ -58,7 +58,7 @@ for i in range(len(world)):
             continue
         
         # Get country information
-        country_b = world.loc[j]
+        country_b = world.iloc[j]
         geom_b = country_b['geometry']
         
         # Calculate intersection of the two countries' boundaries
@@ -68,7 +68,7 @@ for i in range(len(world)):
         if border.is_empty or border.geom_type not in ['LineString', 'MultiLineString']:
             continue
         
-        # Calculate ellipsoidal distance
+        # initialise a variable to hold the cumulative length
         total_length = 0
         
         # Calculate border length 
